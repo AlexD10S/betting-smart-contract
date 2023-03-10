@@ -108,7 +108,10 @@ mod betting {
             // Check the deposit.
             // Assert or Error?
             let deposit = Self::env().transferred_value();
-            assert!(deposit >= MIN_DEPOSIT, "Insufficient deposit");
+            if deposit < MIN_DEPOSIT {
+                return Err(Error::NotEnoughDeposit)
+            }
+             
 
             // Create the betting match
             let betting_match = Match {
