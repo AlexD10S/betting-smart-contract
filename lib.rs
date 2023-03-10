@@ -28,11 +28,11 @@ mod betting {
     )]
     pub struct Bet {
         /// Account of the better.
-        bettor: AccountId,
+        pub bettor: AccountId,
         /// Bet amount.
-        amount: Balance,
+        pub amount: Balance,
         /// Result predicted.
-        result: MatchResult,
+        pub result: MatchResult,
     }
     #[derive(scale::Decode, scale::Encode)]
     #[cfg_attr(
@@ -51,7 +51,7 @@ mod betting {
         /// Result.
         result: Option<MatchResult>,
         /// List of bets.
-        bets: Vec<Bet>,
+        pub bets: Vec<Bet>,
         /// The amount held in reserve of the `depositor`,
         /// To be returned once this recovery process is closed.
         deposit: Balance,
@@ -177,11 +177,14 @@ mod betting {
         ) -> Result<(), Error> {
             let caller = Self::env().caller();
             // Find the match that user wants to place the bet
-            let mut match_to_bet = self.matches.get(&match_id).ok_or(Error::MatchDoesNotExist).unwrap();
+            let mut match_to_bet = match self.matches.get(&match_id) {
+                Some(match_from_storage) => match_from_storage,
+                None => return Err(Error::MatchDoesNotExist)
+            };
 
             // Check if the Match Has Started (can't bet in a started match)
             let current_block_number = self.env().block_number();
-            if current_block_number < match_to_bet.start {
+            if current_block_number > match_to_bet.start {
                 return Err(Error::MatchHasStarted)
             }
             let amount = Self::env().transferred_value();
@@ -214,6 +217,10 @@ mod betting {
         #[ink(message)]
         pub fn exists_match(&self, owner: AccountId) -> bool {
             self.matches.contains(owner)
+        }
+        #[ink(message)]
+        pub fn get_match(&self, owner: AccountId) -> Option<Match> {
+            self.matches.get(owner)
         }
     }
 }
