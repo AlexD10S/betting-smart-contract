@@ -4,43 +4,76 @@ mod tests;
 
 #[ink::contract]
 mod betting {
+    use ink::storage::Mapping;
 
-    /// Defines the storage of your contract.
-    /// Add new fields to the below struct in order
-    /// to add new static storage fields to your contract.
+    // Use BoundedVec?
+    pub type TeamName = Vec<u8>;
+
+    #[derive(scale::Decode, scale::Encode)]
+    #[cfg_attr(
+        feature = "std",
+        derive(scale_info::TypeInfo, ink::storage::traits::StorageLayout)
+    )]
+    pub enum MatchResult {
+        Team1Victory,
+        Team2Victory,
+        Draw,
+    }
+    #[derive(scale::Decode, scale::Encode)]
+    #[cfg_attr(
+        feature = "std",
+        derive(scale_info::TypeInfo, ink::storage::traits::StorageLayout)
+    )]
+    pub struct Bet {
+        /// Account of the better.
+        bettor: AccountId,
+        /// Bet amount.
+        amount: Balance,
+        /// Result predicted.
+        result: MatchResult,
+    }
+    #[derive(scale::Decode, scale::Encode)]
+    #[cfg_attr(
+        feature = "std",
+        derive(scale_info::TypeInfo, ink::storage::traits::StorageLayout)
+    )]
+    pub struct Match {
+        /// Starting block of the match.
+        start: BlockNumber,
+        /// Length of the match (start + length = end).
+        length: BlockNumber,
+        /// Team1 name.
+        team1: TeamName,
+        /// Team2 name.
+        team2: TeamName,
+        /// Result.
+        result: Option<MatchResult>,
+        /// List of bets.
+        bets: Vec<Bet>,
+        /// The amount held in reserve of the `depositor`,
+        /// To be returned once this recovery process is closed.
+        deposit: Balance,
+    }
+
     #[ink(storage)]
     pub struct Betting {
-        /// Stores a single `bool` value on the storage.
-        value: bool,
+        /// Mapping of open matches.
+        matches: Mapping<AccountId, Match>,
     }
 
     impl Betting {
-        /// Constructor that initializes the `bool` value to the given `init_value`.
         #[ink(constructor)]
-        pub fn new(init_value: bool) -> Self {
-            Self { value: init_value }
+        pub fn new() -> Self {
+            Self {
+                matches: Default::default(),
+            }
         }
 
-        /// Constructor that initializes the `bool` value to `false`.
-        ///
-        /// Constructors can delegate to other constructors.
-        #[ink(constructor)]
-        pub fn default() -> Self {
-            Self::new(Default::default())
-        }
 
-        /// A message that can be called on instantiated contracts.
-        /// This one flips the value of the stored `bool` from `true`
-        /// to `false` and vice versa.
+        /// Simply returns the currentmapping of matches.
         #[ink(message)]
-        pub fn flip(&mut self) {
-            self.value = !self.value;
-        }
-
-        /// Simply returns the current value of our `bool`.
-        #[ink(message)]
-        pub fn get(&self) -> bool {
-            self.value
+        pub fn exists_match(&self, owner: AccountId) -> bool {
+            self.matches.contains(owner)
         }
     }
 }

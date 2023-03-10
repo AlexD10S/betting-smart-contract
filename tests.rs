@@ -11,16 +11,16 @@ mod tests {
     /// We test if the default constructor does its job.
     #[ink::test]
     fn default_works() {
-        let betting = Betting::default();
-        assert_eq!(betting.get(), false);
+        let accounts = ink::env::test::default_accounts::<ink::env::DefaultEnvironment>();
+        let betting = Betting::new();
+        assert_eq!(betting.exists_match(accounts.alice), false);
     }
 
-    /// We test a simple use case of our contract.
-    #[ink::test]
-    fn it_works() {
-        let mut betting = Betting::new(false);
-        assert_eq!(betting.get(), false);
-        betting.flip();
-        assert_eq!(betting.get(), true);
-    }
+    // #[ink::test]
+    // fn it_works() {
+    //     let mut betting = Betting::new(false);
+    //     assert_eq!(betting.get(), false);
+    //     betting.flip();
+    //     assert_eq!(betting.get(), true);
+    // }
 }
