@@ -32,6 +32,7 @@ mod tests {
 
         let emitted_events = ink::env::test::recorded_events().collect::<Vec<_>>();
         assert_eq!(1, emitted_events.len());
+
     }
 
     #[ink::test]

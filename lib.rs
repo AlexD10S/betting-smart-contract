@@ -11,7 +11,7 @@ mod betting {
 
     const MIN_DEPOSIT: Balance = 1_000_000_000_000;
 
-    #[derive(scale::Decode, scale::Encode)]
+    #[derive(scale::Decode, scale::Encode, PartialEq, Clone)]
     #[cfg_attr(
         feature = "std",
         derive(scale_info::TypeInfo, ink::storage::traits::StorageLayout)
@@ -21,7 +21,7 @@ mod betting {
         Team2Victory,
         Draw,
     }
-    #[derive(scale::Decode, scale::Encode)]
+    #[derive(scale::Decode, scale::Encode, PartialEq)]
     #[cfg_attr(
         feature = "std",
         derive(scale_info::TypeInfo, ink::storage::traits::StorageLayout)
@@ -75,6 +75,16 @@ mod betting {
         start: BlockNumber,
         length: BlockNumber
     }
+    /// A new bet has been created. [matchId, who, amount, result]
+    #[ink(event)]
+    pub struct BetPlaced {
+        #[ink(topic)]
+        match_id: AccountId,
+        #[ink(topic)]
+        who: AccountId,
+        amount: Balance,
+        result: MatchResult,
+    }
 
     /// The Betting error types.
     #[derive(Debug, PartialEq, Eq, scale::Encode, scale::Decode)]
@@ -88,6 +98,12 @@ mod betting {
         TimeMatchOver,
         /// Not enough deposit to create the Match.
         NotEnoughDeposit,
+        /// The match where the bet is placed does not exist
+        MatchDoesNotExist,
+        /// No allowing betting if the match has started
+        MatchHasStarted,
+        /// You already place the same bet in that match
+        AlreadyBet,
     }
 
     impl Betting {
@@ -108,7 +124,6 @@ mod betting {
             start: BlockNumber,
             length: BlockNumber
         ) -> Result<(), Error> {
-            
             let caller = Self::env().caller();
             // Check account has no open match
             if self.exists_match(caller) {
@@ -125,7 +140,6 @@ mod betting {
             if deposit < MIN_DEPOSIT {
                 return Err(Error::NotEnoughDeposit)
             }
-             
             // Create the betting match
             let betting_match = Match {
                 start,
@@ -151,6 +165,47 @@ mod betting {
                 length,
             });
 
+            Ok(())
+        }
+
+        // payable accepts a payment (amount_to_bet).
+        #[ink(message, payable)]
+        pub fn bet(
+            &mut self, 
+            match_id: AccountId,
+            result: MatchResult,
+        ) -> Result<(), Error> {
+            let caller = Self::env().caller();
+            // Find the match that user wants to place the bet
+            let mut match_to_bet = self.matches.get(&match_id).ok_or(Error::MatchDoesNotExist).unwrap();
+
+            // Check if the Match Has Started (can't bet in a started match)
+            let current_block_number = self.env().block_number();
+            if current_block_number < match_to_bet.start {
+                return Err(Error::MatchHasStarted)
+            }
+            let amount = Self::env().transferred_value();
+            // Create the bet to be placed
+            let bet = Bet {
+                bettor: caller,
+                amount,
+                result: result.clone(),
+            };
+            // Check if the bet already exists
+            if match_to_bet.bets.contains(&bet) { 
+                return Err(Error::AlreadyBet);
+            } else {
+                match_to_bet.bets.push(bet);
+                // Store the betting match in the list of open matches
+                self.matches.insert(match_id, &match_to_bet);
+                // Emit an event.
+                self.env().emit_event(BetPlaced {
+                    match_id,
+                    who: caller,
+                    amount,
+                    result
+                });
+            }
             Ok(())
         }
 
