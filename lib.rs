@@ -61,6 +61,19 @@ mod betting {
     pub struct Betting {
         /// Mapping of open matches.
         matches: Mapping<AccountId, Match>,
+        // Mapping of all match hashes. (hash -> owner)
+        //matches_hashes: Mapping<Hash, AccountId>
+    }
+
+    /// A new match has been created. [who, team1, team2, start, length]
+    #[ink(event)]
+    pub struct MatchCreated {
+        #[ink(topic)]
+        who: AccountId,
+        team1: TeamName,
+        team2: TeamName,
+        start: BlockNumber,
+        length: BlockNumber
     }
 
     /// The Betting error types.
@@ -82,6 +95,7 @@ mod betting {
         pub fn new() -> Self {
             Self {
                 matches: Default::default(),
+                //matches_hashes: Default::default(),
             }
         }
 
@@ -112,7 +126,6 @@ mod betting {
                 return Err(Error::NotEnoughDeposit)
             }
              
-
             // Create the betting match
             let betting_match = Match {
                 start,
@@ -124,11 +137,20 @@ mod betting {
                 deposit,
             };
             // Check if match already exists by checking its specs hash.
+            // How to create a hash of the object betting_match??
             // Store the match hash with its creator account.
 
             // Store the betting match in the list of open matches
             self.matches.insert(caller, &betting_match);
             // Emit an event.
+            self.env().emit_event(MatchCreated {
+                who: caller,
+                team1: betting_match.team1,
+                team2: betting_match.team2,
+                start,
+                length,
+            });
+
             Ok(())
         }
 

@@ -29,6 +29,9 @@ mod tests {
 
         assert_eq!(betting.create_match_to_bet("team1".as_bytes().to_vec(), "team2".as_bytes().to_vec(), 10, 10), Ok(()));
         assert_eq!(betting.exists_match(accounts.alice), true);
+
+        let emitted_events = ink::env::test::recorded_events().collect::<Vec<_>>();
+        assert_eq!(1, emitted_events.len());
     }
 
     #[ink::test]
