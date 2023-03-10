@@ -9,6 +9,8 @@ mod betting {
     // Use BoundedVec?
     pub type TeamName = Vec<u8>;
 
+    const MIN_DEPOSIT: Balance = 1_000_000_000_000;
+
     #[derive(scale::Decode, scale::Encode)]
     #[cfg_attr(
         feature = "std",
@@ -61,6 +63,20 @@ mod betting {
         matches: Mapping<AccountId, Match>,
     }
 
+    /// The Betting error types.
+    #[derive(Debug, PartialEq, Eq, scale::Encode, scale::Decode)]
+    #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
+    pub enum Error {
+        /// The match to be created already exist.
+        MatchAlreadyExists,
+        /// Each account can only have one match open.
+        OriginHasAlreadyOpenMatch,
+        /// The time of the match is over.
+        TimeMatchOver,
+        /// Not enough deposit to create the Match.
+        NotEnoughDeposit,
+    }
+
     impl Betting {
         #[ink(constructor)]
         pub fn new() -> Self {
@@ -69,8 +85,52 @@ mod betting {
             }
         }
 
+        // payable accepts a payment (deposit).
+        #[ink(message, payable)]
+        pub fn create_match_to_bet(
+            &mut self, 
+            team1: Vec<u8>,
+            team2: Vec<u8>,
+            start: BlockNumber,
+            length: BlockNumber
+        ) -> Result<(), Error> {
+            
+            let caller = Self::env().caller();
+            // Check account has no open match
+            if self.exists_match(caller) {
+                return Err(Error::OriginHasAlreadyOpenMatch)
+            }
+            // Check if start and length are valid
+            let current_block_number = self.env().block_number();
+            if current_block_number > (start + length) {
+                return Err(Error::TimeMatchOver)
+            }
+            // Check the deposit.
+            // Assert or Error?
+            let deposit = Self::env().transferred_value();
+            assert!(deposit >= MIN_DEPOSIT, "Insufficient deposit");
 
-        /// Simply returns the currentmapping of matches.
+            // Create the betting match
+            let betting_match = Match {
+                start,
+                length,
+                team1,
+                team2,
+                result: None,
+                bets: Default::default(),
+                deposit,
+            };
+            // Check if match already exists by checking its specs hash.
+            // Store the match hash with its creator account.
+
+            // Store the betting match in the list of open matches
+            self.matches.insert(caller, &betting_match);
+            // Emit an event.
+            Ok(())
+        }
+
+
+        /// Simply checks if a match exists.
         #[ink(message)]
         pub fn exists_match(&self, owner: AccountId) -> bool {
             self.matches.contains(owner)
