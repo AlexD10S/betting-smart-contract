@@ -126,7 +126,7 @@ mod betting {
     }
 
     impl Betting {
-        #[ink(constructor)]
+        #[ink(constructor, payable)]
         pub fn new() -> Self {
             let owner = Self::env().caller();
             Self {
@@ -237,7 +237,7 @@ mod betting {
         /// Set the result of an existing match.
         /// The dispatch origin for this call must be the owner.
         /// Get root of the node?? like ensure_root(origin)?;
-        #[ink(message, payable)]
+        #[ink(message)]
         pub fn set_result(
             &mut self, 
             match_id: AccountId,
@@ -272,7 +272,7 @@ mod betting {
         }
 
          /// When a match ends the owner of the match can distribute funds to the winners and delete the match.
-        #[ink(message, payable)]
+        #[ink(message)]
         pub fn distribute_winnings(&mut self) -> Result<(), Error> {
             let caller = Self::env().caller();
             // Get the match that user wants to close, deleting it
@@ -297,8 +297,8 @@ mod betting {
             }
             // Distribute funds
             for winner_bet in &winners {
-                let weighted = winner_bet.amount / total_winners;
-                let amount_won = weighted * total_bet;
+                let weighted = winner_bet.amount / (total_winners / 100);
+                let amount_won = weighted * (total_bet /100);
                 self.env().transfer(winner_bet.bettor, amount_won).map_err(|_| Error::TransferFailed)?;
             }
             // Return deposit
