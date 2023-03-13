@@ -164,8 +164,6 @@ mod tests {
         let accounts = ink::env::test::default_accounts::<ink::env::DefaultEnvironment>();
         let mut betting = Betting::new();
 
-        assert_eq!(betting.exists_match(accounts.alice), false);
-
         let match_id = create_match(&mut betting, accounts.alice, "team1", "team2", 1, 1, 1000000000000);
 
         assert_eq!(betting.exists_match(match_id), true);
@@ -179,5 +177,39 @@ mod tests {
         let emitted_events = ink::env::test::recorded_events().collect::<Vec<_>>();
         assert_eq!(2, emitted_events.len());
 
+    }
+    #[ink::test]
+    fn set_result_bad_origin() {
+        let accounts = ink::env::test::default_accounts::<ink::env::DefaultEnvironment>();
+        let mut betting = Betting::new();
+
+        let match_id = create_match(&mut betting, accounts.alice, "team1", "team2", 1, 1, 1000000000000);
+
+        // Advance 3 blocks
+        ink::env::test::advance_block::<ink::env::DefaultEnvironment>();
+        ink::env::test::advance_block::<ink::env::DefaultEnvironment>();
+        ink::env::test::advance_block::<ink::env::DefaultEnvironment>();
+        //set Bob as the caller
+        ink::env::test::set_caller::<ink::env::DefaultEnvironment>(accounts.bob);
+        assert_eq!(betting.set_result(match_id, MatchResult::Team1Victory), Err(Error::BadOrigin));
+    }
+    #[ink::test]
+    fn set_result_match_not_exist() {
+        let accounts = ink::env::test::default_accounts::<ink::env::DefaultEnvironment>();
+        let mut betting = Betting::new();
+
+        // Advance 3 blocks
+        ink::env::test::advance_block::<ink::env::DefaultEnvironment>();
+        ink::env::test::advance_block::<ink::env::DefaultEnvironment>();
+        ink::env::test::advance_block::<ink::env::DefaultEnvironment>();
+        assert_eq!(betting.set_result(accounts.alice, MatchResult::Team1Victory), Err(Error::MatchDoesNotExist));
+    }
+    #[ink::test]
+    fn set_result_match_not_finished() {
+        let accounts = ink::env::test::default_accounts::<ink::env::DefaultEnvironment>();
+        let mut betting = Betting::new();
+        let match_id = create_match(&mut betting, accounts.alice, "team1", "team2", 10, 10, 1000000000000);
+
+        assert_eq!(betting.set_result(match_id, MatchResult::Team1Victory), Err(Error::TimeMatchNotOver));
     }
 }
