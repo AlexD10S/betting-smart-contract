@@ -192,7 +192,7 @@ mod betting {
         ) -> Result<(), Error> {
             let caller = Self::env().caller();
             // Find the match that user wants to place the bet
-            let mut match_to_bet = match self.matches.get(&match_id) {
+            let mut match_to_bet = match self.matches.take(&match_id) {
                 Some(match_from_storage) => match_from_storage,
                 None => return Err(Error::MatchDoesNotExist)
             };
@@ -243,7 +243,7 @@ mod betting {
                 return Err(Error::BadOrigin);
             }
             //Find the match where owner wants to set the result
-            let mut match_to_set_result = match self.matches.get(&match_id) {
+            let mut match_to_set_result = match self.matches.take(&match_id) {
                 Some(match_from_storage) => match_from_storage,
                 None => return Err(Error::MatchDoesNotExist)
             };
