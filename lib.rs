@@ -63,6 +63,8 @@ mod betting {
         matches: Mapping<AccountId, Match>,
         // Mapping of all match hashes. (hash -> owner)
         //matches_hashes: Mapping<Hash, AccountId>
+        /// Owner of the Smart Contract (sudo)
+        owner: AccountId,
     }
 
     /// A new match has been created. [who, team1, team2, start, length]
@@ -85,6 +87,13 @@ mod betting {
         amount: Balance,
         result: MatchResult,
     }
+    /// A match result has been set. [matchId, result]
+    #[ink(event)]
+    pub struct MatchResultSet {
+        #[ink(topic)]
+        match_id: AccountId, 
+        result: MatchResult,
+    }
 
     /// The Betting error types.
     #[derive(Debug, PartialEq, Eq, scale::Encode, scale::Decode)]
@@ -104,13 +113,19 @@ mod betting {
         MatchHasStarted,
         /// You already place the same bet in that match
         AlreadyBet,
+        /// Only owner of the smart contract can make this call
+        BadOrigin,
+        /// No allowing set the result if the match not over
+        TimeMatchNotOver,
     }
 
     impl Betting {
         #[ink(constructor)]
         pub fn new() -> Self {
+            let owner = Self::env().caller();
             Self {
                 matches: Default::default(),
+                owner
                 //matches_hashes: Default::default(),
             }
         }
@@ -209,6 +224,44 @@ mod betting {
                     result
                 });
             }
+            Ok(())
+        }
+
+
+        /// Set the result of an existing match.
+        /// The dispatch origin for this call must be the owner.
+        /// Get root of the node?? like ensure_root(origin)?;
+        #[ink(message, payable)]
+        pub fn set_result(
+            &mut self, 
+            match_id: AccountId,
+            result: MatchResult,
+        ) -> Result<(), Error> {
+            let caller = Self::env().caller();
+            // Only owner of the SC can call this message.
+            if caller != self.owner {
+                return Err(Error::BadOrigin);
+            }
+            //Find the match where owner wants to set the result
+            let mut match_to_set_result = match self.matches.get(&match_id) {
+                Some(match_from_storage) => match_from_storage,
+                None => return Err(Error::MatchDoesNotExist)
+            };
+            // Check if start and length are valid
+            let current_block_number = self.env().block_number();
+            if current_block_number <= (match_to_set_result.start + match_to_set_result.length) {
+                return Err(Error::TimeMatchNotOver)
+            }
+            //set the result
+            match_to_set_result.result = Some(result.clone());
+            // Store the betting match in the list of open matches
+            self.matches.insert(match_id, &match_to_set_result);
+            // Emit an event.
+            self.env().emit_event(MatchResultSet {
+                match_id,
+                result
+            });
+            
             Ok(())
         }
 

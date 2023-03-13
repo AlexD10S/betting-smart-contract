@@ -130,7 +130,7 @@ mod tests {
     }
 
     #[ink::test]
-    fn bet_error_match_has_starte() {
+    fn bet_error_match_has_start() {
         let accounts = ink::env::test::default_accounts::<ink::env::DefaultEnvironment>();
         let mut betting = Betting::new();
 
@@ -156,6 +156,28 @@ mod tests {
         assert_eq!(betting.bet(match_id, MatchResult::Team1Victory), Ok(()));
 
         assert_eq!(betting.bet(match_id, MatchResult::Team1Victory),  Err(Error::AlreadyBet));
+
+    }
+
+    #[ink::test]
+    fn set_result_works() {
+        let accounts = ink::env::test::default_accounts::<ink::env::DefaultEnvironment>();
+        let mut betting = Betting::new();
+
+        assert_eq!(betting.exists_match(accounts.alice), false);
+
+        let match_id = create_match(&mut betting, accounts.alice, "team1", "team2", 1, 1, 1000000000000);
+
+        assert_eq!(betting.exists_match(match_id), true);
+
+        // Advance 3 blocks
+        ink::env::test::advance_block::<ink::env::DefaultEnvironment>();
+        ink::env::test::advance_block::<ink::env::DefaultEnvironment>();
+        ink::env::test::advance_block::<ink::env::DefaultEnvironment>();
+        assert_eq!(betting.set_result(match_id, MatchResult::Team1Victory), Ok(()));
+
+        let emitted_events = ink::env::test::recorded_events().collect::<Vec<_>>();
+        assert_eq!(2, emitted_events.len());
 
     }
 }
