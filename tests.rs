@@ -123,6 +123,24 @@ mod tests {
         );
         assert_eq!(betting.exists_match(accounts.alice), false);
     }
+    #[ink::test]
+    fn error_creating_two_equal_matches() {
+        let accounts = set_accounts();
+        let mut betting = create_contract(accounts.alice);
+        
+        assert_eq!(betting.exists_match(accounts.alice), false);
+        ink::env::test::transfer_in::<ink::env::DefaultEnvironment>(1000000000000);
+        assert_eq!(betting.create_match_to_bet("team1".as_bytes().to_vec(), "team2".as_bytes().to_vec(), 1, 1), Ok(()));
+
+        //Bob to create same match as alice just created
+        ink::env::test::set_caller::<ink::env::DefaultEnvironment>(accounts.bob);
+        ink::env::test::transfer_in::<ink::env::DefaultEnvironment>(1000000000000);
+
+        assert_eq!(
+            betting.create_match_to_bet("team1".as_bytes().to_vec(), "team2".as_bytes().to_vec(), 1, 1),
+            Err(Error::MatchAlreadyExists)
+        );
+    }
 
     #[ink::test]
     fn bet_works() {

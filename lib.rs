@@ -62,7 +62,7 @@ mod betting {
         /// Mapping of open matches.
         matches: Mapping<AccountId, Match>,
         // Mapping of all match hashes. (hash -> owner)
-        //matches_hashes: Mapping<Hash, AccountId>
+        matches_hashes: Mapping<[u8;32], AccountId>,
         /// Owner of the Smart Contract (sudo)
         owner: AccountId,
     }
@@ -131,8 +131,8 @@ mod betting {
             let owner = Self::env().caller();
             Self {
                 matches: Default::default(),
-                owner
-                //matches_hashes: Default::default(),
+                matches_hashes: Default::default(),
+                owner,
             }
         }
 
@@ -171,10 +171,14 @@ mod betting {
                 bets: Default::default(),
                 deposit,
             };
+            // Hash the match object.
+            let match_hash = Self::get_match_hash(&betting_match);
             // Check if match already exists by checking its specs hash.
-            // How to create a hash of the object betting_match??
+            if self.matches_hashes.contains(match_hash) {
+                return Err(Error::MatchAlreadyExists)
+            }
             // Store the match hash with its creator account.
-
+            self.matches_hashes.insert(match_hash, &caller);
             // Store the betting match in the list of open matches
             self.matches.insert(caller, &betting_match);
             // Emit an event.
@@ -284,6 +288,9 @@ mod betting {
             if !match_to_delete.result.is_some() {
                 return Err(Error::MatchNotResult);
             }
+            // Hash the match object and delete it from the hash mapping.
+            let match_hash = Self::get_match_hash(&match_to_delete);
+            self.matches_hashes.take(&match_hash);
             // Iterate over all bets to get the winners accounts
             let mut total_winners: Balance = 0u32.into();
             let mut total_bet: Balance = 0u32.into();
@@ -316,6 +323,24 @@ mod betting {
         #[ink(message)]
         pub fn get_match(&self, owner: AccountId) -> Option<Match> {
             self.matches.get(owner)
+        }
+
+        pub fn get_match_hash(
+            betting_match: &Match,
+        ) -> [u8;32] {
+            let entropy = (
+                &betting_match.team1,
+                &betting_match.team2,
+                betting_match.start,
+                betting_match.length,
+            );
+            let mut message =
+                <ink::env::hash::Sha2x256 as ink::env::hash::HashOutput>::Type::default();
+            ink::env::hash_encoded::<ink::env::hash::Sha2x256, _>(
+                &entropy,
+                &mut message,
+            );
+            message
         }
     }
 }
