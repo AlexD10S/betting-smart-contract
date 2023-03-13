@@ -11,7 +11,7 @@ mod betting {
 
     const MIN_DEPOSIT: Balance = 1_000_000_000_000;
 
-    #[derive(scale::Decode, scale::Encode, PartialEq, Clone)]
+    #[derive(scale::Decode, scale::Encode, PartialEq, Clone, Copy)]
     #[cfg_attr(
         feature = "std",
         derive(scale_info::TypeInfo, ink::storage::traits::StorageLayout)
@@ -117,6 +117,12 @@ mod betting {
         BadOrigin,
         /// No allowing set the result if the match not over
         TimeMatchNotOver,
+        /// The match still has not a result set
+        MatchNotResult,
+         /// Returned if the requested transfer failed. This can be the case if the
+        /// contract does not have sufficient free funds or if the transfer would
+        /// have brought the contract's balance below minimum balance.
+        TransferFailed,
     }
 
     impl Betting {
@@ -262,6 +268,42 @@ mod betting {
                 result
             });
             
+            Ok(())
+        }
+
+         /// When a match ends the owner of the match can distribute funds to the winners and delete the match.
+        #[ink(message, payable)]
+        pub fn distribute_winnings(&mut self) -> Result<(), Error> {
+            let caller = Self::env().caller();
+            // Get the match that user wants to close, deleting it
+             let mut match_to_delete = match self.matches.take(&caller) {
+                Some(match_from_storage) => match_from_storage,
+                None => return Err(Error::MatchDoesNotExist)
+            };
+            // Make sure the match has a result set already
+            if !match_to_delete.result.is_some() {
+                return Err(Error::MatchNotResult);
+            }
+            // Iterate over all bets to get the winners accounts
+            let mut total_winners: Balance = 0u32.into();
+            let mut total_bet: Balance = 0u32.into();
+            let mut winners = Vec::new();
+            for bet in match_to_delete.bets.iter_mut() {
+                total_bet += bet.amount;
+                if Some(bet.result) == match_to_delete.result {
+                    total_winners += bet.amount;
+                    winners.push(bet)
+                }
+            }
+            // Distribute funds
+            for winner_bet in &winners {
+                let weighted = winner_bet.amount / total_winners;
+                let amount_won = weighted * total_bet;
+                self.env().transfer(winner_bet.bettor, amount_won).map_err(|_| Error::TransferFailed)?;
+            }
+            // Return deposit
+            self.env().transfer(caller, match_to_delete.deposit).map_err(|_| Error::TransferFailed)?;
+
             Ok(())
         }
 
