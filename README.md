@@ -12,8 +12,6 @@ Everyone can bet in the match, for a basic result: victory team 1, draw or victo
 
 When the match is over the user that has created the contract can set the result of the match.
 
-:warning: It is **not a production-ready smart contract**, but a sample built for learning purposes. It is discouraged to use this code 'as-is' in a production environment.
-
 ## How to test it
 Run the tests:
 ```shell
@@ -24,6 +22,11 @@ Build the WebAssembly for the contract:
 ```shell
 cargo +nightly contract build
 ```
+
+## A diagram
+![Diagram](assets/diagram.png)
+
+:warning: It is **not a production-ready smart contract**, but a sample built for learning purposes. It is discouraged to use this code 'as-is' in a production environment.
 
 ## Messages
 
